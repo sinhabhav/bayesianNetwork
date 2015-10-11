@@ -1,0 +1,186 @@
+import sys
+import itertools
+import copy
+
+fileName = sys.argv[2]
+inputFile = open(sys.argv[2])
+print fileName
+nk =inputFile.readline()
+if nk =="" or nk == 0:
+	print "null"
+	inputFile.close()
+	sys.exit()
+nkArr = nk.split( )
+n=nkArr[0]
+k=nkArr[1]
+
+symptomCount = []
+diseaseProbability = []
+diseaseList = []
+symptomList = []
+diseaseBeTrue = []	#P(S|D)
+diseaseBeFalse = []	#P(S|~D)
+patientData = {}
+ques1Numerator= []
+ques1Denominator =[]
+
+def getPatient(no):
+	key = 'Patient-'+str(no)
+	return key
+	
+def getPatientAns(key):
+	return  patientData.get(key)
+
+
+def question1(patNo):
+	key = getPatient(patNo)
+	patientAns = getPatientAns(key)
+	answer1 = {}
+	for i in range (0,int(n)):
+		diseaseName = diseaseList[i]
+		numerator = float(diseaseProbability[i])
+		denominator = 1- numerator
+		thisDiseasePatientAns = patientAns.get(diseaseName)
+		numerator,denominator = calculateNumeratorDenominator(numerator,denominator,thisDiseasePatientAns,diseaseBeTrue[i],diseaseBeFalse[i])
+		ques1Numerator.append(numerator)
+		ques1Denominator.append(denominator)
+		value = findProbability(numerator,denominator)
+		answer1.update({diseaseName:str(format(value,'.4f'))})
+	return answer1
+
+def findProbability(numerator,denominator):
+	denominator = denominator + numerator
+	value = numerator / denominator
+	#value = round((numerator / denominator),4)
+	return value
+	
+def calculateNumeratorDenominator(numerator,denominator,tfuList,tList,fList):
+	for tfu in range(0,len(tfuList)):
+			if not (tfuList[tfu] == 'U'):
+				if tfuList[tfu] == 'T':
+					numerator = numerator * float(tList[tfu])
+					denominator = denominator * float(fList[tfu])
+				else:
+					numerator = numerator * (1 - float(tList[tfu]))
+					denominator = denominator * (1- float(fList[tfu]))
+	return numerator,denominator
+	
+def findMax(a,b):
+	if (a>b):
+		return a
+	else:
+		return b
+		
+def findMin(a,b):
+	if(a<b):
+		return a
+	else:
+		return b
+
+def question2(patNo):
+	key = getPatient(patNo)
+	patientAns = getPatientAns(key)
+	answer2= {}
+	for d in range (0,int(n)):
+		uListTrue = []
+		uListFalse = []
+		diseaseName = diseaseList[d]
+		thisDiseasePatientAns = patientAns.get(diseaseName)
+		for tfu in range(0,len(thisDiseasePatientAns)):
+			if (thisDiseasePatientAns[tfu] == 'U'):
+				uListTrue.append(diseaseBeTrue[d][tfu])
+				uListFalse.append(diseaseBeFalse[d][tfu])
+		count = len(uListTrue)
+		tfList = []
+		for i in itertools.product('TF',repeat=count):
+			tfList.append(i) 
+		max = 0
+		min = 1
+		for tf in tfList:
+			l = list (tf)
+			numerator, denominator = calculateNumeratorDenominator(ques1Numerator[d], ques1Denominator[d],l, uListTrue, uListFalse)
+			val = findProbability(numerator,denominator)
+			max = findMax(max,val)
+			min = findMin(min,val)
+		answer2.update({diseaseName:[str(format(min,'.4f')),str(format(max,'.4f'))]})
+	return answer2	
+
+		
+def question3(patNo):
+	key = getPatient(patNo)
+	patientAns = getPatientAns(key)
+	answer3 = {}
+	
+	for d in range (0,int(n)):
+		
+		max = 0
+		min = 1
+		diseaseName = diseaseList[d]
+		minMaxList = []
+		maxSym = []
+		minSym = []
+		thisDiseasePatientAns = patientAns.get(diseaseName)
+		for tfu in range(0,len(thisDiseasePatientAns)):
+			if (thisDiseasePatientAns[tfu] == 'U'):
+				numerator1 = ques1Numerator[d] * float(diseaseBeTrue[d][tfu])
+				denominator1 = ques1Denominator[d] * float(diseaseBeFalse[d][tfu])
+				numerator2 = ques1Numerator[d] * (1 - float(diseaseBeTrue[d][tfu]))
+				denominator2 = ques1Denominator[d] * (1- float(diseaseBeFalse[d][tfu]))
+				prob1 = findProbability(numerator1,denominator1)
+				prob2 = findProbability(numerator2,denominator2)
+				if(prob1> max):
+					max = copy.deepcopy(prob1)
+					maxSym = [symptomList[d][tfu],'T']
+				if(prob2>max):
+					max = copy.deepcopy(prob2)
+					maxSym = [symptomList[d][tfu],'F']
+				if(prob1<min):
+					min = copy.deepcopy(prob1)
+					minSym = [symptomList[d][tfu],'T']
+				if(prob2<min):
+					min = copy.deepcopy(prob2)
+					minSym = [symptomList[d][tfu],'F']
+		
+		answer3.update({diseaseName:maxSym+minSym})
+	return answer3	
+	
+
+if n > 0:
+	for i in range(0,int(n)):
+		firstLine = (inputFile.readline()).split()
+		diseaseList.append(firstLine[0])
+		symptomCount.append(firstLine[1])
+		diseaseProbability.append(firstLine[2])
+		symptomList.append(eval(inputFile.readline()))
+		diseaseBeTrue.append(eval(inputFile.readline()))
+		diseaseBeFalse.append(eval(inputFile.readline()))
+	
+	for i in range(0,int(k)):
+		key = 'Patient-' + str(i+1)
+		thisPatient = {}
+		for j in range(0, int(n)):
+			thisPatient.update({diseaseList[j]:eval(inputFile.readline())})
+		patientData.update({key:thisPatient})
+	print "done with parsing"
+	
+	
+	outputFileName = fileName.replace('.txt','')+'_inference.txt'
+	outputFile = open(outputFileName, 'w+')
+	
+	for i in range(1, int(k)+1):
+		ques1Numerator= []
+		ques1Denominator =[]
+		answer1  = question1(i)
+		answer2 = question2(i)
+		answer3 = question3(i)
+		key = getPatient(i) + ":"
+		outputFile.write(''.join(format(key))+"\n")
+		outputFile.write(''.join(format(answer1))+"\n")
+		outputFile.write(''.join(format(answer2))+"\n")
+		outputFile.write(''.join(format(answer3))+"\n")
+		
+	
+	
+inputFile.close()
+outputFile.close()
+sys.exit()
